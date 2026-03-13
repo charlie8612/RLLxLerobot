@@ -1,0 +1,9 @@
+# Piper Lab — USB Camera symlinks
+# Install: sudo cp config/99-usb-camera.rules /etc/udev/rules.d/
+#          sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Logitech C270 (旁邊固定視角, overhead) → /dev/cam_c270
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", ATTRS{serial}=="200901010001", ATTR{index}=="0", SYMLINK+="cam_c270"
+
+# ARC Camera (eye-in-hand, wrist) → /dev/cam_arc
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="05a3", ATTRS{idProduct}=="9230", ATTRS{serial}=="USB2.0_CAM1", ATTR{index}=="0", SYMLINK+="cam_arc"

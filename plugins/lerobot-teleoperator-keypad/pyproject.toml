@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerobot_teleoperator_keypad"
+version = "0.1.0"
+description = "Keyboard joint-space teleoperator for LeRobot (controls individual joints with arrow keys)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pynput",
+]

@@ -1,0 +1,32 @@
+# === Upstream repos (cloned, not our code) ===
+lerobot/
+ros2_ws/
+
+# === Data / generated outputs ===
+outputs/
+wandb/
+waypoints/
+log.txt
+
+# === Utility libs (reference only, not maintained here) ===
+piper_util/
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.eggs/
+dist/
+build/
+
+# === IDE / tools ===
+.claude/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
