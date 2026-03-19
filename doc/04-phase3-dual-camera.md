@@ -54,6 +54,19 @@ ls -la /dev/cam_*
 - 訓練和推論時必須用**完全相同**的 camera 名稱和解析度
 - 雙 camera 會增加 policy 的 input 維度，訓練時間和 GPU 記憶體需求會增加
 
+## Camera 支援解析度
+
+LeRobot 的 OpenCVCamera 會嚴格驗證設定的解析度是否與實際一致，不符會直接報錯。
+
+| Camera | 支援的解析度 | 不支援 |
+|--------|------------|--------|
+| Logitech C270 | 640×480, 320×240, 160×120, 640×360 | 640×400 |
+| ARC Camera | 640×480, 320×240 | 640×400 |
+
+> ⚠️ 外部 pretrained model 可能用不同解析度訓練（如 SmolVLA ISdept 用 640×400）。
+> 直接設 camera 為該解析度會失敗。改用 camera 支援的解析度即可，
+> SmolVLA 的 preprocessor 會自動 resize 到 512×512。
+
 ## 備註
 
 - fourcc 用 YUYV（預設），實測 MJPG vs YUYV 體感無差異

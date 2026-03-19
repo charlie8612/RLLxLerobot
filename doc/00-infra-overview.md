@@ -89,10 +89,11 @@ bash scripts/0_can_up.sh
 
 `/home` 磁碟空間有限（863G），大型檔案已搬到 `/tmp2/charlie` 並用 symlink 指回原路徑，對腳本透明。
 
-| 原路徑 | 搬到 | 大小 | 說明 |
-|--------|------|------|------|
-| `~/.cache/huggingface/hub/models--lerobot--pi0fast-base` | `/tmp2/charlie/huggingface-cache/` | 11G | Pi0-FAST pretrained model |
-| `outputs/train/diffusion_dual_cam` | `/tmp2/charlie/training-outputs/` | 60G | Diffusion Policy 訓練 checkpoints (21 個) |
+| 原路徑 | 搬到 | 說明 |
+|--------|------|------|
+| `~/.cache/huggingface/hub` | `/tmp2/charlie/huggingface-cache/hub` (symlink) | 所有 HuggingFace model weights |
+| `~/.cache/huggingface/lerobot` | `/tmp2/charlie/huggingface-cache/lerobot` (symlink) | LeRobot dataset cache、eval recordings、calibration |
+| `outputs/train/diffusion_dual_cam` | `/tmp2/charlie/training-outputs/` | Diffusion Policy 訓練 checkpoints (21 個) |
 
 > ⚠️ `/tmp2/charlie` 的資料不在 `/home` 備份範圍內，重要的 checkpoint 應另外備份。
 >
@@ -110,6 +111,7 @@ bash scripts/0_can_up.sh
 | 4 | 雙手 Teleoperation | ✅ Teleop 完成 | [05](05-phase4-dual-arm-teleop.md) |
 | 5 | Diffusion Policy（從零訓練） | ✅ 完成（收集→訓練→Eval） | [06](06-phase5-diffusion-policy.md) |
 | 6 | Pi0-FAST（Pretrained Fine-tune） | 🔧 訓練完成，inference 慢（~30s/chunk） | [07](07-phase6-pi0fast.md) |
+| 7 | SmolVLA（輕量 VLA） | 🔧 Inference 可跑，待 fine-tune | [08](08-phase7-smolvla.md) |
 
 > Phase 4 (雙手) 不擋 Phase 5/6。單手雙 camera 就可以訓練。
 
@@ -154,9 +156,12 @@ bash scripts/0_can_up.sh
 |---|------|------|:--------:|:----:|
 | K1 | keypad plugin 未裝時 LeRobot 噴 warning | 搬移路徑後重新 `pip install -e` 時漏裝 keypad plugin，啟動任何 LeRobot 指令都會噴 `No module named 'lerobot_teleoperator_keypad'` error log。原因是 LeRobot 的 `register_third_party_plugins()` 會掃所有已註冊的 `lerobot_*` package metadata，即使當前指令沒用到也會嘗試 import。<br><br>**修法**：已補裝修復。未來搬移路徑時記得三個 plugin 都要重裝。 | 🔴 | ✅ |
 | K2 | 開機時手臂跳到上一次位置 | Piper arm controller 內部記住上一次 `JointCtrl` 目標位置，啟用 MOVE_J 後往舊目標跑。不是 CAN buffer 問題，清 trajectory 也無效。<br><br>**修法**：以 1% 速度啟用 MOVE_J，連發 5 次 hold-in-place 覆蓋舊目標，再切到正常速度。 | 🔴 | ✅ |
-| K3 | USB camera 權限問題 | 新接的 USB camera 可能被分配到 `root:video` 權限的 device node（如 `/dev/video6`），導致 `lerobot-find-cameras` 和 OpenCV 無法開啟。<br><br>**修法**：快速修 `sudo chmod 666 /dev/videoN`；永久修 `sudo usermod -aG video charliechan` 後重新登入。<br><br>**現狀**：目前用 `chmod` 暫時處理，尚未加入 `video` group（需要 sudo + 重新登入）。 | 🟠 | |
+| K3 | USB camera 權限問題 | 新接的 USB camera 可能被分配到 `root:video` 權限的 device node（如 `/dev/video6`），導致 `lerobot-find-cameras` 和 OpenCV 無法開啟。<br><br>**修法**：`sudo usermod -aG video charliechan`，然後 `sudo loginctl kill-user charliechan` 強制重建 session（VS Code Remote SSH 的 systemd user session 不會因重連而刷新 group）。 | 🟠 | ✅ |
 | K4 | 錄製時無語音提示（spd-say 沒聲音） | PulseAudio 的 default sink 變成 `auto_null`（虛擬空裝置），加上 ALSA Master/Headphone 被 mute，導致 `spd-say` 播不出聲音。多人共用機器時 PulseAudio 是 per-user 的，重啟不影響其他人。<br><br>**修法**：`pulseaudio -k && pulseaudio --start` 重啟自己的 PulseAudio，然後 `amixer -c 0 set Master unmute && amixer -c 0 set Master 80% && amixer -c 0 set Headphone unmute && amixer -c 0 set Headphone 80%`，最後 `spd-say "test"` 驗證。 | 🟠 | ✅ |
 | K5 | 雙手 Ctrl+C 關閉不乾淨 | 雙手 teleop 按 Ctrl+C 時只關掉一隻手臂，需要按兩次才能完全退出。推測是 subprocess 的 signal handling 問題，主 process 收到 SIGINT 後只 disconnect 了一側。 | 🟢 | |
+| K6 | C270 USB 斷線 | C270 插在 Bus 05（獨立 2-port USB controller）時會頻繁斷線重連。<br><br>**修法**：改插到跟 cam_arc 同一排的 USB 孔（Bus 01，16-port 主 controller）。用 `lsusb -t` 確認 C270 在 Bus 01 底下。 | 🟠 | ✅ |
+| K7 | Eval 時 FPS warning 洗版 | `lerobot-record` 有 policy 時，推論造成的 FPS 下降是正常的（chunk inference ~2s），但 warning 會一直刷。<br><br>**修法**：patch `lerobot/src/lerobot/scripts/lerobot_record.py` L422，有 policy 時不印 warning。**注意：這是直接改 LeRobot 原始碼，更新 LeRobot 時需重新 apply。** | 🟢 | ✅ |
+| K8 | Ctrl+C 手臂倒地 | `lerobot-record` 的 `finally` block 先跑 `log_say("Stop recording", blocking=True)` 再 `disconnect()`。Ctrl+C 若打斷在 `select_action` 或 `log_say` 卡住時，`disconnect()` 來不及跑，手臂直接斷電倒地。<br><br>**修法**：patch `lerobot_record.py` 的 `finally` block，將 `robot.disconnect()` 移到最前面並包 try/except。**注意：這是直接改 LeRobot 原始碼，更新 LeRobot 時需重新 apply。** | 🔴 | ✅ |
 
 ## 安全原則
 
@@ -181,4 +186,5 @@ bash scripts/0_can_up.sh
 - [05-phase4-dual-arm-teleop.md](05-phase4-dual-arm-teleop.md) — Phase 4 雙手 teleop 計畫
 - [06-phase5-diffusion-policy.md](06-phase5-diffusion-policy.md) — Phase 5: Diffusion Policy
 - [07-phase6-pi0fast.md](07-phase6-pi0fast.md) — Phase 6: Pi0-FAST Fine-tune
+- [08-phase7-smolvla.md](08-phase7-smolvla.md) — Phase 7: SmolVLA 輕量 VLA
 - [08-openpi-evaluation.md](08-openpi-evaluation.md) — OpenPI (JAX) 評估：是否值得遷移

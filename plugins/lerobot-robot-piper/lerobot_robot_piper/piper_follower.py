@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 from functools import cached_property
 
@@ -123,6 +124,32 @@ class PiperFollower(Robot):
         self._is_connected = True
         logger.info("PiperFollower connected on %s", self.config.can_port)
 
+        if self.config.go_home_on_connect:
+            self._move_to_home()
+
+    def _move_to_home(self) -> None:
+        """Smoothstep interpolation to home position after connect."""
+        logger.info("Moving to home position...")
+        try:
+            keys = [f"{n}.pos" for n in JOINT_NAMES] + ["gripper.pos"]
+            current = self._get_current_deg()
+            target = self.config.home_position_deg
+
+            max_delta = max(abs(target[k] - current[k]) for k in keys)
+            duration = max(max_delta / self._SAFE_SPEED, self._MIN_DURATION)
+
+            steps = max(int(duration * self._CONTROL_RATE), 1)
+            dt = 1.0 / self._CONTROL_RATE
+            for i in range(steps):
+                t = (i + 1) / steps
+                t = t * t * (3 - 2 * t)  # smoothstep
+                action = {k: current[k] + t * (target[k] - current[k]) for k in keys}
+                self._send_action_deg(action)
+                time.sleep(dt)
+            logger.info("Home position reached.")
+        except Exception as e:
+            logger.warning("Failed to reach home position: %s", e)
+
     def calibrate(self) -> None:
         pass
 
@@ -135,14 +162,32 @@ class PiperFollower(Robot):
         gripper_msgs = self.piper.GetArmGripperMsgs()
 
         js = joint_msgs.joint_state
+        # SDK returns 0.001 degree; convert to degrees first
+        j1 = js.joint_1 / 1000.0
+        j2 = js.joint_2 / 1000.0
+        j3 = js.joint_3 / 1000.0
+        j4 = js.joint_4 / 1000.0
+        j5 = js.joint_5 / 1000.0
+        j6 = js.joint_6 / 1000.0
+        grip = gripper_msgs.gripper_state.grippers_angle / 1000.0
+
+        if self.config.unit == "rad":
+            j1 = math.radians(j1)
+            j2 = math.radians(j2)
+            j3 = math.radians(j3)
+            j4 = math.radians(j4)
+            j5 = math.radians(j5)
+            j6 = math.radians(j6)
+            grip = grip / 1000.0  # mm → meters
+
         obs: RobotObservation = {
-            "joint_1.pos": js.joint_1 / 1000.0,
-            "joint_2.pos": js.joint_2 / 1000.0,
-            "joint_3.pos": js.joint_3 / 1000.0,
-            "joint_4.pos": js.joint_4 / 1000.0,
-            "joint_5.pos": js.joint_5 / 1000.0,
-            "joint_6.pos": js.joint_6 / 1000.0,
-            "gripper.pos": gripper_msgs.gripper_state.grippers_angle / 1000.0,
+            "joint_1.pos": j1,
+            "joint_2.pos": j2,
+            "joint_3.pos": j3,
+            "joint_4.pos": j4,
+            "joint_5.pos": j5,
+            "joint_6.pos": j6,
+            "gripper.pos": grip,
         }
 
         for cam_key, cam in self.cameras.items():
@@ -154,28 +199,44 @@ class PiperFollower(Robot):
     def send_action(self, action: RobotAction) -> RobotAction:
         goal = {key.removesuffix(".pos"): val for key, val in action.items() if key.endswith(".pos")}
 
-        # Clamp to joint limits
+        # If unit is rad, convert to degrees for internal processing
+        if self.config.unit == "rad":
+            for name in JOINT_NAMES:
+                if name in goal:
+                    goal[name] = math.degrees(goal[name])
+            if "gripper" in goal:
+                goal["gripper"] = goal["gripper"] * 1000.0  # meters → mm
+
+        # Clamp to joint limits (always in degrees)
         for name, (lo, hi) in JOINT_LIMITS_DEG.items():
             if name in goal:
                 goal[name] = float(np.clip(goal[name], lo, hi))
         if "gripper" in goal:
             goal["gripper"] = float(np.clip(goal["gripper"], *GRIPPER_RANGE_MM))
 
-        # Safety: limit relative movement per step
+        # Safety: limit relative movement per step (in degrees)
         if self.config.max_relative_target is not None:
+            # get_observation returns in configured unit, convert to deg for comparison
             current_obs = self.get_observation()
             max_delta = self.config.max_relative_target
+            if self.config.unit == "rad":
+                max_delta = math.degrees(max_delta)
             for name in JOINT_NAMES:
                 key = f"{name}.pos"
                 if name in goal and key in current_obs:
                     current = current_obs[key]
+                    if self.config.unit == "rad":
+                        current = math.degrees(current)
                     diff = goal[name] - current
                     clamped_diff = float(np.clip(diff, -max_delta, max_delta))
                     goal[name] = current + clamped_diff
             if "gripper" in goal and "gripper.pos" in current_obs:
-                g_diff = goal["gripper"] - current_obs["gripper.pos"]
+                current_grip = current_obs["gripper.pos"]
+                if self.config.unit == "rad":
+                    current_grip = current_grip * 1000.0
+                g_diff = goal["gripper"] - current_grip
                 g_diff = float(np.clip(g_diff, -max_delta, max_delta))
-                goal["gripper"] = current_obs["gripper.pos"] + g_diff
+                goal["gripper"] = current_grip + g_diff
 
         # Convert degrees to 0.001 degree (int) for SDK
         j = [int(round(goal.get(name, 0.0) * 1000)) for name in JOINT_NAMES]
@@ -202,8 +263,8 @@ class PiperFollower(Robot):
         self._is_connected = False
         logger.info("PiperFollower disconnected.")
 
-    # Rest position: arm folded, safe for power-off
-    REST_STATE = {
+    # Rest position: arm folded, safe for power-off (always in DEGREES)
+    REST_STATE_DEG = {
         "joint_1.pos": -0.83,
         "joint_2.pos": -0.14,
         "joint_3.pos": -0.38,
@@ -216,15 +277,43 @@ class PiperFollower(Robot):
     _CONTROL_RATE = 100.0   # Hz
     _MIN_DURATION = 0.3     # seconds
 
+    def _get_current_deg(self) -> dict[str, float]:
+        """Get current joint positions in degrees, regardless of unit config."""
+        obs = self.get_observation()
+        keys = [f"{n}.pos" for n in JOINT_NAMES] + ["gripper.pos"]
+        current = {}
+        for k in keys:
+            v = obs[k]
+            if self.config.unit == "rad":
+                if k == "gripper.pos":
+                    v = v * 1000.0  # meters → mm
+                else:
+                    v = math.degrees(v)
+            current[k] = v
+        return current
+
+    def _send_action_deg(self, action_deg: dict[str, float]) -> None:
+        """Send action in degrees, converting if unit=rad."""
+        if self.config.unit == "rad":
+            action = {}
+            for k, v in action_deg.items():
+                if k == "gripper.pos":
+                    action[k] = v / 1000.0  # mm → meters
+                else:
+                    action[k] = math.radians(v)
+        else:
+            action = action_deg
+        self.send_action(action)
+
     def _move_to_rest(self) -> None:
         """Smoothstep interpolation to rest position before disconnect."""
         logger.info("Moving to rest position...")
         try:
-            obs = self.get_observation()
             keys = [f"{n}.pos" for n in JOINT_NAMES] + ["gripper.pos"]
-            current = {k: obs[k] for k in keys}
+            current = self._get_current_deg()
+            target = self.REST_STATE_DEG
 
-            max_delta = max(abs(self.REST_STATE[k] - current[k]) for k in keys)
+            max_delta = max(abs(target[k] - current[k]) for k in keys)
             duration = max(max_delta / self._SAFE_SPEED, self._MIN_DURATION)
 
             steps = max(int(duration * self._CONTROL_RATE), 1)
@@ -232,8 +321,8 @@ class PiperFollower(Robot):
             for i in range(steps):
                 t = (i + 1) / steps
                 t = t * t * (3 - 2 * t)  # smoothstep
-                action = {k: current[k] + t * (self.REST_STATE[k] - current[k]) for k in keys}
-                self.send_action(action)
+                action = {k: current[k] + t * (target[k] - current[k]) for k in keys}
+                self._send_action_deg(action)
                 time.sleep(dt)
             logger.info("Rest position reached.")
         except Exception as e:

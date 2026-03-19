@@ -21,6 +21,28 @@ class PiperFollowerBaseConfig:
     # Gripper default effort in 0.001 N*m (1000 = 1 N*m)
     gripper_effort: int = 1000
 
+    # Unit for joint angles: "deg" (default, for your own datasets) or "rad" (for ISdept etc.)
+    # When "rad", the plugin converts rad↔deg internally so the API uses radians
+    # but the hardware still receives degrees.
+    unit: str = "deg"
+
+    # Move to home position on connect. Ensures a consistent starting pose.
+    go_home_on_connect: bool = False
+
+    # Home position in degrees (always degrees, converted internally if unit=rad)
+    home_position_deg: dict[str, float] = field(default_factory=lambda: {
+        "joint_1.pos": 0.0,
+        "joint_2.pos": 0.0,
+        "joint_3.pos": 0.0,
+        "joint_4.pos": 0.0,
+        "joint_5.pos": 0.0,
+        "joint_6.pos": 0.0,
+        "gripper.pos": 0.0,
+    })
+
+    # Log each policy inference chunk to console
+    log_inference: bool = False
+
     # Cameras (empty by default, add in Phase 3)
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
