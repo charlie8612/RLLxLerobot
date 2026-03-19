@@ -38,13 +38,7 @@ SmolVLA pretrain 時將 community datasets 的 camera 統一 rename：
 
 ## 已測試的 Model
 
-### 1. `lerobot/smolvla_base` (pretrained, SO100)
-
-- 6-DOF, 在 community datasets (SO100) 上 pretrained
-- Zero-shot 在 Piper (7-DOF) 上不可用（action 維度不同）
-- 用途：作為 fine-tune 的 base
-
-### 2. `ISdept/smolvla-piper` (fine-tuned on Piper)
+### `ISdept/smolvla-piper` (fine-tuned on Piper)
 
 - 7-DOF, 315 episodes pick-place, 3 cameras (front/gripper/right)
 - **單位**: radian（我們的 dataset 用 degree）→ 需要 `--robot.unit=rad`
@@ -83,8 +77,7 @@ SmolVLA pretrain 時將 community datasets 的 camera 統一 rename：
 
 | 腳本 | 用途 |
 |------|------|
-| `scripts/7_train_smolvla.sh` | Fine-tune smolvla_base on 自己的 dual-camera data |
-| `scripts/7_eval_smolvla.sh` | Eval smolvla_base（pretrained, zero-shot） |
+| `scripts/7_train_smolvla.sh` | Fine-tune ISdept/smolvla-piper on 自己的 dual-camera data |
 | `scripts/7_eval_smolvla_piper.sh` | Eval ISdept/smolvla-piper（Piper fine-tuned, unit=rad） |
 
 ## 待做
