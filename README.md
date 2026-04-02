@@ -31,9 +31,11 @@ waypoints/        Waypoint 軌跡檔（JSON）
 conda create -n piper python=3.10
 conda activate piper
 
-# 安裝 LeRobot
+# 安裝 LeRobot (https://github.com/huggingface/lerobot)
+# 本專案測試版本: v0.4.4 (commit 63dca86d)
 cd ~/piper-lerobot
-cd lerobot && pip install -e ".[dev]" && cd ..
+git clone https://github.com/huggingface/lerobot.git lerobot
+cd lerobot && git checkout v0.4.4 && pip install -e ".[dev]" && cd ..
 
 # 安裝 Piper SDK
 pip install piper_sdk
