@@ -36,12 +36,26 @@ SmolVLA pretrain 時將 community datasets 的 camera 統一 rename：
 | camera2 | wrist/gripper (手腕) | cam_arc |
 | camera3 | side/right (側面) | empty 或第三顆 camera |
 
+## 單位問題：degree vs radian
+
+**SmolVLA 官方 dataset（`lerobot/svla_so100_pickplace`）用的是 degree**，值範圍 [-37, 180]。
+我們的 Piper dataset 也是 degree。**degree 是標準做法。**
+
+ISdept/smolvla-piper 用 radian 是他自己的做法，不是 SmolVLA 的標準。
+直接 eval ISdept model 時需要 `--robot.unit=rad`，但 **fine-tune 時不需要改錄製方式**：
+
+- SmolVLA 用 `MEAN_STD` normalization（不是 min-max），訓練時會從 dataset 重新算 mean/std
+- Fine-tune 從 ISdept model 出發，normalization stats 會被你的 degree dataset 覆蓋
+- 訓練完的 model 就是 degree 空間的，eval 用預設 `unit=deg` 即可
+
+> **結論：照 degree 錄製 + fine-tune，不需要配合 ISdept 改成 radian。**
+
 ## 已測試的 Model
 
 ### `ISdept/smolvla-piper` (fine-tuned on Piper)
 
 - 7-DOF, 315 episodes pick-place, 3 cameras (front/gripper/right)
-- **單位**: radian（我們的 dataset 用 degree）→ 需要 `--robot.unit=rad`
+- **單位**: radian（非標準，他自己的做法）→ 直接 eval 需要 `--robot.unit=rad`
 - **camera rename_map**: `front→camera1, gripper→camera2, right→camera3`
 - Inference 可跑，但環境/camera 差異大，效果有限
 

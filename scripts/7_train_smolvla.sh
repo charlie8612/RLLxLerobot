@@ -1,18 +1,13 @@
 #!/bin/bash
-# Phase 7: Fine-tune ISdept/smolvla-piper on our dual-camera pick-up-cube dataset
-# ISdept model is already Piper 7-DOF fine-tuned (radian, 3 cameras)
-# Our dataset is degree-based — training will re-learn normalization stats
-#
-# Camera mapping: our overhead → camera1 (front), wrist → camera2 (gripper)
-# ISdept used 3 cameras (front/gripper/right), we have 2, pad 1 empty
+# Phase 7: Fine-tune ISdept/smolvla-piper on our radian dataset
+# Dataset recorded with unit=rad + SmolVLA camera convention (camera1/camera2)
+# ISdept model uses 3 cameras, we have 2, pad 1 empty
 
 CUDA_VISIBLE_DEVICES=0 \
 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True \
 lerobot-train \
-    --dataset.repo_id=charliechan/piper-pick-cube-dual \
-    --dataset.root=/home/charliechan/dataset/charliechan/piper-pick-cube-dual \
+    --dataset.repo_id=charliechan/piper-pick-cube-smolvla \
     --policy.path=ISdept/smolvla-piper \
-    --rename_map='{"observation.images.overhead": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}' \
     --policy.empty_cameras=1 \
     --batch_size=8 \
     --steps=10000 \

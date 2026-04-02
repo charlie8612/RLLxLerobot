@@ -340,6 +340,9 @@ def cmd_execute(args):
                 break
             if loop > 1:
                 print(f"\n--- Loop {loop_i + 1}/{loop} ---")
+                if loop_i > 0 and args.loop_delay > 0:
+                    print(f"  Waiting {args.loop_delay}s...")
+                    time.sleep(args.loop_delay)
 
             for wp_i, wp in enumerate(waypoints):
                 if not running:
@@ -401,6 +404,8 @@ def main():
                         help=f"Joint speed in deg/s (default: {DEFAULT_SPEED})")
     p_exec.add_argument("--loop", type=int, default=1,
                         help="Number of times to loop (default: 1)")
+    p_exec.add_argument("--loop-delay", type=float, default=0.0,
+                        help="Seconds to wait between loops (default: 0)")
     p_exec.set_defaults(func=cmd_execute)
 
     # ---- list ----

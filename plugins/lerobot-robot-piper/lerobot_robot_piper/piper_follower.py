@@ -265,13 +265,13 @@ class PiperFollower(Robot):
 
     # Rest position: arm folded, safe for power-off (always in DEGREES)
     REST_STATE_DEG = {
-        "joint_1.pos": -0.83,
-        "joint_2.pos": -0.14,
-        "joint_3.pos": -0.38,
-        "joint_4.pos": -1.39,
-        "joint_5.pos": 0.0,
-        "joint_6.pos": 2.11,
-        "gripper.pos": 0.0,
+        "joint_1.pos": -0.11,
+        "joint_2.pos": -2.26,
+        "joint_3.pos": 2.51,
+        "joint_4.pos": 1.83,
+        "joint_5.pos": 18.12,
+        "joint_6.pos": 0.00,
+        "gripper.pos": 0.60,
     }
     _SAFE_SPEED = 30.0      # deg/s
     _CONTROL_RATE = 100.0   # Hz
