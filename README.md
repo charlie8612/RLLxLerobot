@@ -2,12 +2,13 @@
 
 Piper 機械手臂 + LeRobot framework 的 imitation learning 專案。
 
-包含 LeRobot plugin（Piper follower、ROBOTIS leader、keyboard teleoperator）、資料收集/訓練/評估腳本，以及相關工具。
+包含資料收集/訓練/評估腳本、相關工具，以及兩個 lab 專用 LeRobot plugin（ROBOTIS leader、keyboard teleoperator）。
+Piper follower、OMY leader、OMY→Piper retarget 三個 plugin 已獨立發佈，安裝時 clone 到 `plugins/` 底下（見 Quick Start）。
 
 ## 目錄結構
 
 ```
-plugins/          LeRobot plugins (pip install -e)
+plugins/          LeRobot plugins：2 個 lab 專用（內附）+ 3 個發佈版（clone 進來，見 Quick Start）
 scripts/          操作腳本（teleop、record、train、eval）
 tools/            維護與 debug 工具
 config/           udev rules 等硬體設定
@@ -31,19 +32,44 @@ waypoints/        Waypoint 軌跡檔（JSON）
 conda create -n piper python=3.10
 conda activate piper
 
+# clone 本專案
+git clone https://github.com/charlie8612/RLLxLerobot.git
+cd RLLxLerobot
+
 # 安裝 LeRobot (https://github.com/huggingface/lerobot)
 # 本專案測試版本: v0.4.4 (commit 63dca86d)
-cd ~/piper-lerobot
 git clone https://github.com/huggingface/lerobot.git lerobot
-cd lerobot && git checkout v0.4.4 && pip install -e ".[dev]" && cd ..
+cd lerobot && git checkout v0.4.4
+
+# (A) 完整 GPU 版 —— 要訓練 / 跑 policy 用這個（預設就是 CUDA torch，約 3GB，下載較久）
+pip install -e ".[dev]"
+
+# (B) 只跑 teleop、不需 GPU —— 先裝 CPU torch 再裝本體（省下約 3GB CUDA 下載；順序不可顛倒）
+#     lerobot 依賴 torch，預設 torch 自帶 CUDA；teleop 不做推論，CPU 版即可。
+# pip install "torch>=2.2.1,<2.11.0" "torchvision>=0.21.0,<0.26.0" --index-url https://download.pytorch.org/whl/cpu
+# pip install -e .
+#
+# 之後想從 CPU 改回 GPU：用預設源重裝即可（自動配合 driver 的 CUDA 版本）
+# pip install --force-reinstall "torch>=2.2.1,<2.11.0" "torchvision>=0.21.0,<0.26.0"
+
+cd ..
 
 # 安裝 Piper SDK
 pip install piper_sdk
 
-# 安裝三個 LeRobot plugins
-pip install -e plugins/lerobot-robot-piper
-pip install -e plugins/lerobot-teleoperator-robotis
-pip install -e plugins/lerobot-teleoperator-keypad
+# 已發佈的 plugin：clone 到 plugins/ 底下（各自獨立維護的 repo，本 repo 不 vendor）
+cd plugins
+git clone https://github.com/charlie8612/lerobot_robot_piper.git
+git clone https://github.com/charlie8612/lerobot_teleoperator_omy.git
+git clone https://github.com/charlie8612/lerobot_omy_piper_retarget.git
+cd ..
+
+# 安裝全部 plugins（3 個 clone 進來的 + 2 個本 repo 內附的 lab 專用 plugin）
+pip install -e plugins/lerobot_robot_piper          # Piper follower（piper_follower / bi_piper_follower）
+pip install -e plugins/lerobot_teleoperator_omy     # OMY leader（omy_leader，純讀角度）
+pip install -e plugins/lerobot_omy_piper_retarget   # OMY→Piper 映射 processor
+pip install -e plugins/lerobot-teleoperator-robotis # lab 專用：ROBOTIS leader（內建映射，目前 teleop 用這個）
+pip install -e plugins/lerobot-teleoperator-keypad  # lab 專用：鍵盤 teleop
 ```
 
 ### 2. 硬體設定
