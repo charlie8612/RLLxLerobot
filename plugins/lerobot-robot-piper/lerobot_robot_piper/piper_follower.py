@@ -238,11 +238,25 @@ class PiperFollower(Robot):
                 g_diff = float(np.clip(g_diff, -max_delta, max_delta))
                 goal["gripper"] = current_grip + g_diff
 
-        # Convert degrees to 0.001 degree (int) for SDK
-        j = [int(round(goal.get(name, 0.0) * 1000)) for name in JOINT_NAMES]
-
-        self.piper.MotionCtrl_2(0x01, 0x01, self.config.speed_rate, 0xAD)
-        self.piper.JointCtrl(j[0], j[1], j[2], j[3], j[4], j[5])
+        if self.config.use_mit_mode:
+            # MIT mode: send per-joint (pos, vel, kp, kd, t_ref). pos_ref in radians.
+            # move_mode=0x04 (MOVE M) per SDK demo V2_piper_ctrl_joint_mit.py.
+            self.piper.MotionCtrl_2(0x01, 0x04, 0, 0xAD)
+            for i, name in enumerate(JOINT_NAMES):
+                self.piper.JointMitCtrl(
+                    motor_num=i + 1,
+                    pos_ref=math.radians(goal.get(name, 0.0)),
+                    vel_ref=0.0,
+                    kp=self.config.joint_kp,
+                    kd=self.config.joint_kd,
+                    t_ref=0.0,
+                )
+        else:
+            # Position control: firmware's internal high-kp controller.
+            # 0xAD here is trajectory smoothing flag in MOVE J context (see doc/03).
+            j = [int(round(goal.get(name, 0.0) * 1000)) for name in JOINT_NAMES]
+            self.piper.MotionCtrl_2(0x01, 0x01, self.config.speed_rate, 0xAD)
+            self.piper.JointCtrl(j[0], j[1], j[2], j[3], j[4], j[5])
 
         # Gripper: convert mm to 0.001 mm
         gripper_val = int(round(goal.get("gripper", 0.0) * 1000))

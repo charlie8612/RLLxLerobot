@@ -21,6 +21,20 @@ class PiperFollowerBaseConfig:
     # Gripper default effort in 0.001 N*m (1000 = 1 N*m)
     gripper_effort: int = 1000
 
+    # Control mode selector:
+    #   False (default) = MOVE J + JointCtrl (firmware's internal high-kp position
+    #     controller + trajectory smoothing). Precise waypoint tracking. Use for
+    #     scripted motion, waypoint replay, recording.
+    #   True = MOVE M + JointMitCtrl (user-controlled PD: kp, kd, t_ref).
+    #     Tunable stiffness, useful when carrying payload or for impedance control.
+    use_mit_mode: bool = False
+
+    # MIT mode per-joint gains (only used when use_mit_mode=True).
+    # Higher kp = stiffer position tracking (better under load, but more vibration).
+    # Defaults are SDK reference values. SDK ranges: kp [0, 500], kd [-5, 5].
+    joint_kp: float = 10.0
+    joint_kd: float = 0.8
+
     # Unit for joint angles: "deg" (default, for your own datasets) or "rad" (for ISdept etc.)
     # When "rad", the plugin converts rad↔deg internally so the API uses radians
     # but the hardware still receives degrees.

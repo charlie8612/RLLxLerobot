@@ -116,3 +116,46 @@ python tools/waypoint.py list waypoints/pick_place.json
 ### 安全關機
 
 結束時（Ctrl+C 或 q），手臂會先慢速移到 rest position 再斷電，不會直接摔落。Rest position 定義在 `waypoint.py` 的 `REST_STATE`。如需更新，用 `python tools/read_piper.py` 讀取當前安全姿態角度後修改。
+
+## Auto Record + Policy
+
+| Tool | Description |
+|------|-------------|
+| `auto_record_policy.py` | 自動串接 record_cam.py 與 waypoint.py execute：開錄 → 跑 policy → 停錄。適合 balance_bar 這種多顏色、多 trial 的批次錄製 |
+
+每個 trial 流程：
+1. 開 `record_cam.py` 錄影（背景）
+2. 等 camera warmup 2 秒
+3. 跑 `waypoint.py execute waypoints/balance_bar/test2_<color>.json`（會自動送 Enter 跳過 prompt）
+4. policy 結束後送 SIGINT 給 recorder，等 ffmpeg 轉檔完成
+
+聲音提示：開錄前播下降音 (`desktop-logoff.oga`)，停錄後播上升音 (`desktop-login.oga`)。Trial 之間有 5 秒間隔。
+
+### 參數
+
+| 參數 | 預設 | 說明 |
+|------|------|------|
+| `--i` | （必填） | session 編號，會出現在檔名 `balance_bar_<i>_...` |
+| `--n` | 7 | 每色錄幾次（內部 index 1..n） |
+| `--colors` | `blue,red,white` | 要跑哪些色（逗號分隔，對應 `waypoints/balance_bar/test2_<color>.json`） |
+| `--device` | `/dev/cam_c270` | camera device |
+| `--output-dir` | `/tmp2/charlie/balance_bar` | 輸出資料夾 |
+| `--task-prefix` | `balance_bar` | 檔名前綴 |
+
+### 範例
+
+```bash
+# session 1：每色 7 次，跑 blue/red/white 共 21 個檔
+python tools/auto_record_policy.py --i 1
+
+# session 2：每色 3 次（測試用）
+python tools/auto_record_policy.py --i 2 --n 3
+
+# 只跑 blue
+python tools/auto_record_policy.py --i 1 --colors blue --n 7
+
+# 換成 wrist camera
+python tools/auto_record_policy.py --i 1 --device /dev/cam_arc
+```
+
+輸出檔名：`balance_bar_<i>_<color><k>.mp4`，例如 `balance_bar_2_blue3.mp4`（session 2、blue 第 3 次）。順序是 color 外迴圈、k 內迴圈：blue1..blue7 → red1..red7 → white1..white7。

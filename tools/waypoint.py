@@ -189,6 +189,8 @@ def safe_disconnect(robot: PiperFollower):
 def connect_robot(can_port: str) -> PiperFollower:
     config = PiperFollowerConfig()
     config.can_port = can_port
+    # Use firmware's internal position controller (use_mit_mode=False, default)
+    # for precise waypoint tracking. MIT mode kp/kd are irrelevant here.
     robot = PiperFollower(config)
     robot.connect()
     return robot
