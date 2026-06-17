@@ -4,7 +4,7 @@
 lerobot-teleoperate \
     --robot.type=piper_follower \
     --robot.can_port=piper_left \
-    --robot.cameras="{ overhead: {type: opencv, index_or_path: /dev/cam_c270, width: 640, height: 480, fps: 30} }" \
+    --robot.cameras="{ overhead: {type: opencv, index_or_path: /dev/cam_arc, width: 640, height: 480, fps: 30} }" \
     --teleop.type=robotis_leader \
     --teleop.port=/dev/robotis_left \
     --robot.gripper_effort=5000 \

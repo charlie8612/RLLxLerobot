@@ -14,4 +14,4 @@ lerobot-record \
     --dataset.reset_time_s=5 \
     --dataset.fps=20 \
     --dataset.push_to_hub=false \
-    --display_data=true
+    --display_data=false

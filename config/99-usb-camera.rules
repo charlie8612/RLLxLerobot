@@ -2,8 +2,15 @@
 # Install: sudo cp config/99-usb-camera.rules /etc/udev/rules.d/
 #          sudo udevadm control --reload-rules && sudo udevadm trigger
 #
-# Logitech C270 (旁邊固定視角, overhead) → /dev/cam_c270
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", ATTRS{serial}=="200901010001", ATTR{index}=="0", SYMLINK+="cam_c270"
+# NOTE: the two Logitech C270 share an identical factory serial (200901010001),
+# so they CANNOT be told apart by serial. They are matched by physical USB port
+# (KERNELS) instead — keep each C270 plugged into the same port or the name moves.
 
-# ARC Camera (eye-in-hand, wrist) → /dev/cam_arc
-SUBSYSTEM=="video4linux", ATTRS{idVendor}=="05a3", ATTRS{idProduct}=="9230", ATTRS{serial}=="USB2.0_CAM1", ATTR{index}=="0", SYMLINK+="cam_arc"
+# ARC Camera (eye-in-hand, wrist) — unique vid:pid → /dev/cam_arc (+ alias cam_wrist)
+SUBSYSTEM=="video4linux", ATTRS{idVendor}=="05a3", ATTRS{idProduct}=="9230", ATTR{index}=="0", SYMLINK+="cam_arc", SYMLINK+="cam_wrist"
+
+# Logitech C270 #1 — USB port 1-12 (旁邊固定視角, overhead) → /dev/cam_c270
+SUBSYSTEM=="video4linux", KERNELS=="1-12", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", ATTR{index}=="0", SYMLINK+="cam_c270"
+
+# Logitech C270 #2 — USB port 5-2 (second C270) → /dev/cam_c270b
+SUBSYSTEM=="video4linux", KERNELS=="5-2", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0825", ATTR{index}=="0", SYMLINK+="cam_c270b"
